@@ -19,17 +19,6 @@ NET_CONFIG = {
     "blocks6": [[5, 256, 512, 2, True], [5, 512, 512, 1, True]]
 }
 
-# NET_CONFIG = {
-#     "blocks2":
-#     #k, in_c, out_c, s, use_se
-#     [[3, 16, 32, 1, False]],
-#     "blocks3": [[3, 32, 64, 1, False], [3, 64, 64, 1, False]],
-#     "blocks4": [[3, 64, 128, 1, False], [3, 128, 128, 1, False]],
-#     "blocks5": [[3, 128, 256, 1, False], [5, 256, 256, 1, False],
-#                 [5, 256, 256, 1, False], [5, 256, 256, 1, False],
-#                 [5, 256, 256, 1, False], [5, 256, 256, 1, False]],
-#     "blocks6": [[5, 256, 512, 1, True], [5, 512, 512, 1, True]]
-# }
 
 def make_divisible(v, divisor=8, min_value=None):
     if min_value is None:
@@ -148,20 +137,19 @@ class SEModule(nn.Module):
 
 class PPLCNet(nn.Module):
     def __init__(self,
-                 in_channels=3,
                  scale=1.0,
+                 class_num=1000,
                  dropout_prob=0.0,
-                 class_expand=1280,
-                 class_num=361,):
+                 class_expand=1280):
         super().__init__()
         self.scale = scale
         self.class_expand = class_expand
 
         self.conv1 = ConvBNLayer(
-            num_channels=in_channels,
+            num_channels=3,
             filter_size=3,
             num_filters=make_divisible(16 * scale),
-            stride=1)
+            stride=2)
 
         self.blocks2 = nn.Sequential(*[
             DepthwiseSeparable(
@@ -217,7 +205,7 @@ class PPLCNet(nn.Module):
 
         self.last_conv = nn.Conv2d(
             in_channels=make_divisible(NET_CONFIG["blocks6"][-1][2] * scale),
-            out_channels=class_num, #self.class_expand,
+            out_channels=self.class_expand,
             kernel_size=1,
             stride=1,
             padding=0,
@@ -225,117 +213,97 @@ class PPLCNet(nn.Module):
 
         self.hardswish = Hardswish()
         self.dropout = nn.Dropout(dropout_prob)
-        # self.last_conv = nn.Conv2d(self.class_expand, num_classes, kernel_size=1)
-        # self.flatten = nn.Flatten(start_dim=1, end_dim=-1)
+        self.flatten = nn.Flatten(start_dim=1, end_dim=-1)
 
-        # self.fc = nn.Linear(self.class_expand, class_num)
+        self.fc = nn.Linear(self.class_expand, class_num)
 
     def forward(self, x):
         x = self.conv1(x)
-        # print(x.shape)
+
         x = self.blocks2(x)
-        # print(x.shape)
         x = self.blocks3(x)
-        # print(x.shape)
         x = self.blocks4(x)
-        # print(x.shape)
         x = self.blocks5(x)
-        # print(x.shape)
-        x = self.blocks6(x)   
-        # print(x.shape)    
-        # x = self.avg_pool(x)
-        # print(x.shape)
+        x = self.blocks6(x)
+
+        x = self.avg_pool(x)
         x = self.last_conv(x)
-        # print(x.shape)
-        # x = self.hardswish(x)
-        # x = self.dropout(x)
-        # x = self.flatten(x)
-        # print(x.shape)
-        # x = self.fc(x)
-        x = torch.special.expit(x)
-        # print(x.shape)
-        # x = F.log_softmax(x, dim=1)
+        x = self.hardswish(x)
+        x = self.dropout(x)
+        x = self.flatten(x)
+        x = self.fc(x)
         return x
-        # return tuple(f)
 
 
-def PPLCNet_x0_25(pretrained='', **kwargs):
+def PPLCNet_x0_25(**kwargs):
     """
     PPLCNet_x0_25
     """
     model = PPLCNet(scale=0.25, **kwargs)
-    if pretrained:
-        model.load_state_dict(torch.load(pretrained), strict=False)
+
     return model
 
 
-def PPLCNet_x0_35(pretrained='', **kwargs):
+def PPLCNet_x0_35(**kwargs):
     """
     PPLCNet_x0_35
     """
     model = PPLCNet(scale=0.35, **kwargs)
-    if pretrained:
-        model.load_state_dict(torch.load(pretrained), strict=False)
+
     return model
 
 
-def PPLCNet_x0_5(pretrained='', **kwargs):
+def PPLCNet_x0_5(**kwargs):
     """
     PPLCNet_x0_5
     """
     model = PPLCNet(scale=0.5, **kwargs)
-    if pretrained:
-        model.load_state_dict(torch.load(pretrained), strict=False)
+
     return model
 
 
-def PPLCNet_x0_75(pretrained='', **kwargs):
+def PPLCNet_x0_75(**kwargs):
     """
     PPLCNet_x0_75
     """
     model = PPLCNet(scale=0.75, **kwargs)
-    if pretrained:
-        model.load_state_dict(torch.load(pretrained), strict=False)
+
     return model
 
 
-def PPLCNet_x1_0(pretrained='', **kwargs):
+def PPLCNet_x1_0(**kwargs):
     """
     PPLCNet_x1_0
     """
     model = PPLCNet(scale=1.0, **kwargs)
-    if pretrained:
-        model.load_state_dict(torch.load(pretrained), strict=False)
+
     return model
 
 
-def PPLCNet_x1_5(pretrained='', **kwargs):
+def PPLCNet_x1_5(**kwargs):
     """
     PPLCNet_x1_5
     """
     model = PPLCNet(scale=1.5, **kwargs)
-    if pretrained:
-        model.load_state_dict(torch.load(pretrained), strict=False)
+
     return model
 
 
-def PPLCNet_x2_0(pretrained='', **kwargs):
+def PPLCNet_x2_0(**kwargs):
     """
     PPLCNet_x2_0
     """
     model = PPLCNet(scale=2.0, **kwargs)
-    if pretrained:
-        model.load_state_dict(torch.load(pretrained), strict=False)
+
     return model
 
 
-def PPLCNet_x2_5(pretrained='', **kwargs):
+def PPLCNet_x2_5(**kwargs):
     """
     PPLCNet_x2_5
     """
     model = PPLCNet(scale=2.5, **kwargs)
-    if pretrained:
-        model.load_state_dict(torch.load(pretrained), strict=False)
+
     return model
 
 
@@ -346,22 +314,22 @@ if __name__ == '__main__':
     cnn_scale = 1.0
     class_num = 3
     if cnn_scale == 1.0:
-        model = PPLCNet_x1_0(in_channels=in_channels, class_num=class_num)
+        model = PPLCNet_x1_0(class_num=class_num)
         print("pplc 10")
     elif cnn_scale == 0.5:
-        model = PPLCNet_x0_5(in_channels=in_channels, class_num=class_num)
+        model = PPLCNet_x0_5(class_num=class_num)
         print("pplc 05")
     elif cnn_scale == 0.75:
-        model = PPLCNet_x0_75(in_channels=in_channels, class_num=class_num)
+        model = PPLCNet_x0_75(class_num=class_num)
         print("pplc 075")
     elif cnn_scale == 0.25:
-        model = PPLCNet_x0_25(in_channels=in_channels, class_num=class_num)
+        model = PPLCNet_x0_25(class_num=class_num)
         print("pplc 025")
     elif cnn_scale == 0.35:
-        model = PPLCNet_x0_35(in_channels=in_channels, class_num=class_num)
+        model = PPLCNet_x0_35(class_num=class_num)
         print("pplc 035")
     device = 'cpu'
-    device = 'cuda:0'
+    # device = 'cuda:0'
     model = model.to(device)
     model.eval()
 

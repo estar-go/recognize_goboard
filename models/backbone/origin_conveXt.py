@@ -53,17 +53,16 @@ class ConvNeXt(nn.Module):
     r""" ConvNeXt
         A PyTorch impl of : `A ConvNet for the 2020s`  -
           https://arxiv.org/pdf/2201.03545.pdf
-
     Args:
         in_chans (int): Number of input image channels. Default: 3
-        class_num (int): Number of classes for classification head. Default: 1000
+        num_classes (int): Number of classes for classification head. Default: 1000
         depths (tuple(int)): Number of blocks at each stage. Default: [3, 3, 9, 3]
         dims (int): Feature dimension at each stage. Default: [96, 192, 384, 768]
         drop_path_rate (float): Stochastic depth rate. Default: 0.
         layer_scale_init_value (float): Init value for Layer Scale. Default: 1e-6.
         head_init_scale (float): Init scaling value for classifier weights and biases. Default: 1.
     """
-    def __init__(self, in_chans=3, class_num=1000, 
+    def __init__(self, in_chans=3, num_classes=1000, 
                  depths=[3, 3, 9, 3], dims=[96, 192, 384, 768], drop_path_rate=0., 
                  layer_scale_init_value=1e-6, head_init_scale=1.,
                  ):
@@ -75,7 +74,7 @@ class ConvNeXt(nn.Module):
             LayerNorm(dims[0], eps=1e-6, data_format="channels_first")
         )
         self.downsample_layers.append(stem)
-        for i in range(len(depths)-1):
+        for i in range(3):
             downsample_layer = nn.Sequential(
                     LayerNorm(dims[i], eps=1e-6, data_format="channels_first"),
                     nn.Conv2d(dims[i], dims[i+1], kernel_size=2, stride=2),
@@ -85,7 +84,7 @@ class ConvNeXt(nn.Module):
         self.stages = nn.ModuleList() # 4 feature resolution stages, each consisting of multiple residual blocks
         dp_rates=[x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))] 
         cur = 0
-        for i in range(len(depths)):
+        for i in range(4):
             stage = nn.Sequential(
                 *[Block(dim=dims[i], drop_path=dp_rates[cur + j], 
                 layer_scale_init_value=layer_scale_init_value) for j in range(depths[i])]
@@ -93,9 +92,8 @@ class ConvNeXt(nn.Module):
             self.stages.append(stage)
             cur += depths[i]
 
-        self.norm = LayerNorm(dims[-1], eps=1e-6, data_format="channels_first") # final norm layer
-        # self.head = nn.Linear(dims[-1], class_num)
-        self.head = nn.Conv2d(dims[-1], class_num, kernel_size=1)
+        self.norm = nn.LayerNorm(dims[-1], eps=1e-6) # final norm layer
+        self.head = nn.Linear(dims[-1], num_classes)
 
         self.apply(self._init_weights)
         self.head.weight.data.mul_(head_init_scale)
@@ -107,22 +105,14 @@ class ConvNeXt(nn.Module):
             nn.init.constant_(m.bias, 0)
 
     def forward_features(self, x):
-        for i in range(len(self.stages)):
+        for i in range(4):
             x = self.downsample_layers[i](x)
-            # print(x.shape)
             x = self.stages[i](x)
-            # print(i, x.shape)
-        # return x
-        return self.norm(x)
-        # return self.norm(x.mean([-2, -1])) # global average pooling, (N, C, H, W) -> (N, C)
+        return self.norm(x.mean([-2, -1])) # global average pooling, (N, C, H, W) -> (N, C)
 
     def forward(self, x):
         x = self.forward_features(x)
-        # print(x.shape)
         x = self.head(x)
-        # x = torch.special.expit(x)
-        # print(x.shape)
-
         return x
 
 class LayerNorm(nn.Module):
@@ -165,8 +155,8 @@ model_urls = {
 }
 
 @register_model
-def convnext_tiny(pretrained=False,in_22k=False, depths=[3, 3, 9, 3], dims=[96, 192, 384, 768], class_num=361, in_channels=3, **kwargs):
-    model = ConvNeXt(depths=depths, dims=dims, class_num=class_num, in_chans=in_channels, **kwargs)
+def convnext_tiny(pretrained=False, depths=[3, 3, 9, 3], dims=[96, 192, 384, 768], class_num=2, in_channels=3, in_22k=False, **kwargs):
+    model = ConvNeXt(depths=depths, dims=dims, num_classes=class_num, in_chans=in_channels, **kwargs)
     if pretrained:
         url = model_urls['convnext_tiny_22k'] if in_22k else model_urls['convnext_tiny_1k']
         checkpoint = torch.hub.load_state_dict_from_url(url=url, map_location="cpu", check_hash=True)

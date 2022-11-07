@@ -6,6 +6,7 @@ import torch.nn as nn
 sys.path.insert(0, sys.path[0] + '/models/backbones')
 from models.backbone.conveXt import convnext_tiny, convnext_small, convnext_base, convnext_large, convnext_xlarge
 from models.backbone.pplcnet import PPLCNet_x0_25, PPLCNet_x0_35, PPLCNet_x0_5, PPLCNet_x0_75, PPLCNet_x1_0, PPLCNet_x1_5, PPLCNet_x2_0, PPLCNet_x2_5
+from models.backbone.origin_pplcnet import PPLCNet_x1_0 as origin_pplcx10
 
 def set_parameter_requires_grad(model, feature_extracting):
     if feature_extracting:
@@ -32,6 +33,8 @@ def initialize_model(model_name, class_num=3):
         model_ft = PPLCNet_x0_35(class_num=class_num)   
     elif model_name == 'pplcx025':
         model_ft = PPLCNet_x0_25(class_num=class_num)   
+    elif model_name == 'origin_pplcx10':
+        model_ft = origin_pplcx10(class_num=class_num)
     
 
 
@@ -72,7 +75,7 @@ def load_eval_model(backbone_type, model_path, num_classes, device):
     return model
 
 def weight_DP_to_single(backbone_type, class_num, in_weight_file, out_weight_file):
-    model = initialize_model(backbone_type, class_num, False)
+    model = initialize_model(backbone_type, class_num)
     model = nn.DataParallel(model.to('cuda:0'), device_ids=[0])
     checkpoint = torch.load(in_weight_file)
     model.load_state_dict(checkpoint['net'])
